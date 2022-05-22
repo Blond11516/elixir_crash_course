@@ -1,0 +1,683 @@
+# Elixir Crash Course
+
+## Fondements de la programmation fonctionnelle (rappel)
+
+### Immutabilité
+
+* différence clé entre la prog fonctionnelle et la prog impérative
+* données en mémoire ne peuvent jamais être modifées
+* avantage principal: pureté
+* shadowing
+
+Si JS était immutable
+
+```javascript
+function inc({ foo, bar }) {
+  foo = 15
+}
+
+const A = { foo: 10, bar: 20 }
+inc(A)
+console.log(A) // { foo: 10, bar: 20 }
+```
+
+### Récursion vs. boucles
+
+* boucles impossibles à cause de l'immutabilité
+* tout repose sur la récursion
+* récursion ascendante vs descendante
+
+```javascript
+function findBTree(tree, val) {
+  if (tree.val === val) {
+    return true
+  }
+  
+  if (tree.val < val) {
+    return findBTree(tree.left, val)
+  }
+  
+  return findBTree(thee.right, val)
+}
+
+function sum(values, total) {
+  if (values.length === 0) {
+    return total
+  }
+  
+  const val = values.shift()
+  return sum(values, total + val)
+}
+```
+
+* accumulateur
+* cas de base (addition vs multiplication)
+* tail call optimization
+* très rarement nécessaire, il y a une fonction dans la STL pour 99% des use cases
+
+## Types de base
+
+### booleans, integers, floats, strings
+
+```elixir
+# or, and, not
+boolean = true
+# ||, &&, !
+boolean = false
+# +, -, div, *
+integer = 42
+# +, -, /, *
+float = 3.1416
+# <>
+string = "Hello, world!"
+string = "world!"
+string = "Hello, #{string}"
+nil
+```
+
+### atoms
+
+```elixir
+atom = :atom
+```
+
+```typescript
+declare function foo(): 'bar'
+```
+
+<!-- livebook:{"break_markdown":true} -->
+
+### tuples
+
+```elixir
+tuple = {1, :hello}
+```
+
+### (linked) lists
+
+Attention à l'insertion au début ou à la fin!
+
+```elixir
+list = [1, 2, 3]
+IO.inspect([0 | list])
+list ++ [4, 5]
+```
+
+### maps
+
+```elixir
+map = %{:foo => :bar, "hello" => 42}
+IO.inspect(map.foo)
+IO.inspect(map["hello"])
+%{map | foo: :baz}
+```
+
+### keyword lists
+
+```elixir
+[{:foo, :bar}, {:hello, "world"}] == [foo: :bar, hello: "world"]
+
+defmodule KeywordListsDemo do
+  def foo(opts), do: opts[:bar]
+end
+
+KeywordListsDemo.foo(bar: "baz")
+```
+
+## Pattern matching
+
+```elixir
+{a, b} = {10, 42}
+IO.inspect(a)
+IO.inspect(b)
+%{foo: bar} = %{foo: "hello, world!"}
+IO.inspect(bar)
+[head | tail] = [1, 2, 3]
+IO.inspect(head)
+IO.inspect(tail)
+"hello" <> rest = "hello, world!"
+rest
+```
+
+## Fonctions
+
+```elixir
+defmodule FunctionsDemo do
+  def add(a, b) do
+    a + b
+  end
+
+  defp subtract(a, b) do
+    a - b
+  end
+
+  def pow(a, b), do: a * b
+
+  def foo do
+    "bar"
+  end
+end
+
+# Elixir permet d'appeler des fonctions sans utiliser de parenthèses. Ces deux experssions sont équivalentes.
+IO.inspect(FunctionsDemo.foo() == FunctionsDemo.foo())
+```
+
+### Anonymes
+
+```elixir
+lambda = fn a, b -> a + b end
+lambda.(1, 2) == 3
+```
+
+### Capture
+
+```elixir
+IO.inspect(Enum.map([-2, 5, 1, -1], fn val -> abs(val) end) == [2, 5, 1, 1])
+IO.inspect(Enum.map([-2, 5, 1, -1], &abs/1) == [2, 5, 1, 1])
+
+IO.inspect(Enum.map([-2, 5, 1, -1], &Kernel.+(&1, 2)) == [0, 7, 3, 1])
+IO.inspect(Enum.map([-2, 5, 1, -1], &(&1 + 2)) == [0, 7, 3, 1])
+```
+
+### Pattern matching et overloading
+
+```elixir
+defmodule PatternMatchingFunctionsDemo do
+  def math(:add, a, b), do: a + b
+  def math(:sub, a, b), do: a - b
+  def math(:pow, a), do: a * a
+  def math({:add, a, b}), do: a + b
+  def math(%{operation: :add, a: a, b: b}), do: a + b
+  def math(:add, [a, b]), do: a + b
+
+  def sum([], tot), do: tot
+  def sum([val | rest], tot), do: sum(rest, val + tot)
+end
+
+IO.inspect(PatternMatchingFunctionsDemo.math(:add, 2, 2) == 4)
+IO.inspect(PatternMatchingFunctionsDemo.math(:sub, 2, 2) == 0)
+IO.inspect(PatternMatchingFunctionsDemo.math(:pow, 3) == 9)
+IO.inspect(PatternMatchingFunctionsDemo.math({:add, 2, 2}) == 4)
+IO.inspect(PatternMatchingFunctionsDemo.math(%{operation: :add, a: 2, b: 3}) == 5)
+IO.inspect(PatternMatchingFunctionsDemo.math(:add, [3, 4]) == 7)
+
+IO.inspect(PatternMatchingFunctionsDemo.sum([1, 2, 3], 0) == 6)
+```
+
+### Guards
+
+```elixir
+defmodule GuardsDemo do
+  def sum(a, b) when a == 1 and b == 2, do: :not_implemented
+  def sum(a, b), do: a + b
+end
+
+GuardsDemo.sum(1, 2)
+```
+
+* built-in operators (+, -, etc.)
+* typecheck (`is_list`, `is_number`, etc.)
+* fonctions sur les types built-in (`div`, `abs`, etc.)
+
+<!-- livebook:{"break_markdown":true} -->
+
+### Pipes
+
+```elixir
+defmodule PipesDemo do
+  def calculate_bill(items) do
+    total = calculate_subtotal(items)
+    total = add_shipping(total)
+    total = add_rebate(total)
+    total = add_taxes(total)
+  end
+
+  def calculate_bill_piped(items) do
+    items
+    |> calculate_subtotal()
+    |> add_shipping()
+    |> add_rebate()
+    |> add_taxes()
+  end
+
+  defp calculate_subtotal(_), do: :ok
+  defp add_shipping(_), do: :ok
+  defp add_rebate(_), do: :ok
+  defp add_taxes(_), do: :ok
+end
+```
+
+## Control flow
+
+### if
+
+```elixir
+age = 69
+
+if age == 69 do
+  IO.puts("nice")
+end
+
+if rem(69, 3) == 0, do: IO.puts("fizz")
+
+if age > 40 do
+  IO.puts("boomer")
+else
+  IO.puts("zoomer")
+end
+
+unless age != 69 do
+  IO.puts("nice")
+end
+```
+
+### case
+
+```elixir
+foo = 3
+
+case foo do
+  42 -> IO.puts("mind_blown.jpg")
+  69 -> IO.puts("nice")
+  _ -> IO.puts("whatever")
+end
+
+bar = {:ok, foo}
+
+case bar do
+  {:ok, val} -> val
+  {:error, reason} -> IO.puts("Failed with #{reason}")
+end
+```
+
+### cond
+
+```elixir
+foo = 42
+
+cond do
+  rem(foo, 3) == 0 and rem(foo, 5) == 0 -> IO.puts("fizzbuzz")
+  rem(foo, 3) == 0 -> IO.puts("fizz")
+  rem(foo, 5) == 0 -> IO.puts("buzz")
+  true -> IO.puts("error")
+end
+```
+
+### with
+
+```elixir
+foo = fn -> {:ok, :ok} end
+bar = fn ok -> {:ok, ok} end
+baz = fn ok -> ok end
+
+val =
+  case foo.() do
+    {:ok, val} ->
+      case bar.(val) do
+        {:ok, val} ->
+          case baz.(val) do
+            {:error, reason} -> {:error, reason}
+            val -> IO.puts(val)
+          end
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+
+    {:error, reason} ->
+      {:error, reason}
+  end
+
+with {:ok, val} <- foo.(),
+     {:ok, val} <- bar.(val),
+     val <- baz.(val) do
+  IO.puts(val)
+end
+
+with {:ok, val} <- foo.(),
+     {:ok, val} <- bar.(val),
+     {:ok, val} <- baz.(val) do
+  IO.puts(val)
+else
+  error -> IO.inspect(error)
+end
+```
+
+## Projet et tooling
+
+### iex
+
+* recompile
+* h()
+
+<!-- livebook:{"break_markdown":true} -->
+
+### modules
+
+```elixir
+defmodule Modules.Demo do
+  def bar(baz) do
+    IO.puts(baz)
+  end
+end
+
+Modules.Demo.bar("hello")
+```
+
+* découverte automatique
+* correspondance avec le filesystem optionnelle mais recommandée
+
+<!-- livebook:{"break_markdown":true} -->
+
+### use, import, require, alias
+
+#### use
+
+Surtout utilisé par les librairies pour faire un setup général d'un module (ex: `ExUnit.Case`, `Genserver`)
+
+#### import
+
+Rend tous les exports d'un module accessibles directement
+
+```elixir
+defmodule ImportDemo1 do
+  def bar(baz) do
+    IO.puts(baz)
+  end
+end
+
+defmodule ImportDemo2 do
+  import ImportDemo1
+
+  def world do
+    bar("Hello, World!")
+  end
+end
+
+ImportDemo2.world()
+```
+
+Le module `Kernel` est toujours auto importé.
+
+<!-- livebook:{"break_markdown":true} -->
+
+#### require
+
+Même chose que `import`, mais import seulement les macros. Impossible d'utiliser une macro sans `require`.
+
+<!-- livebook:{"break_markdown":true} -->
+
+#### alias
+
+Permet de renommer un module.
+
+```elixir
+defmodule Alias.Demo do
+  def bar do
+    Enum.map([1, 2, 3], &IO.puts/1)
+  end
+end
+
+defmodule Alias.Demo2 do
+  alias Alias.Demo
+
+  def baz do
+    Demo.bar()
+  end
+
+  alias Alias.{Demo, Demo2}
+  # pas recommandé
+  alias Alias.Demo, as: Foo
+end
+```
+
+### mix
+
+* mix new
+* mix compile
+* mix deps.get
+* mix start
+* iex -S mix
+
+## Concurrence
+
+### Processes
+
+* fondement de Erlang/BEAM
+* 100% isolés
+* ordonnacement préemptif (rien ne peut empêcher tout le système d'avancer)
+
+```elixir
+IO.inspect(pid = spawn(fn -> 1 + 2 end))
+IO.inspect(self())
+```
+
+### Message passing
+
+```elixir
+parent = self()
+pid = spawn(fn -> send(parent, "ping") end)
+
+receive do
+  "ping" -> IO.inspect("pong")
+  _ -> nil
+end
+
+receive do
+  "Hello" -> ", World!"
+after
+  1000 -> "timed out"
+end
+```
+
+```elixir
+parent = self()
+
+pid =
+  spawn(fn ->
+    send(parent, {:ping, self})
+
+    receive do
+      :ok -> :ok
+    end
+  end)
+
+receive do
+  {:ping, pid} -> send(pid, :pong)
+end
+
+IO.inspect(Process.info(pid, :messages))
+send(pid, :hello)
+IO.inspect(Process.info(pid, :messages))
+
+Process.exit(pid, :kill)
+```
+
+### GenServers
+
+**Gen**eric **Server**
+
+* process qui gère un state et expose un API strict pour modifier ce state
+
+TODO préparer un exemple pertinent, présenter `call` au complet avant `cast`
+
+```elixir
+defmodule MyService do
+  use GenServer
+
+  # Client API
+  def start_link(_) do
+    GenServer.start_link(__MODULE__, nil)
+  end
+
+  def ping do
+    GenServer.call(__MODULE__, :ping)
+  end
+
+  def inc do
+    GenServer.cast(__MODULE__, :inc)
+  end
+
+  # Server implementation
+  def init(_) do
+    {:ok, 0}
+  end
+
+  def handle_call(:ping, _pid, state) do
+    {:reply, :pong, state}
+  end
+
+  def handle_cast(:inc, state) do
+    {:no_reply, state + 1}
+  end
+end
+
+{:ok, pid} = GenServer.start(MyService, nil, name: MyService)
+Process.exit(pid, :kill)
+```
+
+TODO exemple simple d'implémentation de GenServer
+
+<!-- livebook:{"break_markdown":true} -->
+
+### Supervisors
+
+```elixir
+defmodule MySupervisor do
+  use Supervisor
+
+  def init(_) do
+    children = [MyService]
+
+    Supervisor.init(children, strategy: :one_for_one)
+  end
+end
+
+{:ok, pid} = Supervisor.start_link(MySupervisor, nil)
+Process.exit(pid, :normal)
+```
+
+* arbres de supervision
+* résilience
+
+## Autres tidbits
+
+### inspect
+
+* `IO.inspect`
+* Retourne la représentation textuelle de n'importe quoi
+
+```elixir
+inspect("hello") == "hello"
+inspect(42) == "42"
+inspect(%{hello: :world}) == "%{hello: :world}"
+
+[1, 2, 3]
+|> Enum.map(fn x -> x * 2 end)
+|> IO.inspect()
+|> Enum.map(&to_string/1)
+|> IO.inspect()
+|> Enum.join(", ")
+```
+
+### Structs
+
+```elixir
+defmodule User do
+  defstruct [:id, :name, :age]
+
+  def print_age(%User{age: age}), do: IO.inspect(age)
+  def update_age(%User{} = user, age), do: %User{user | age: age}
+end
+
+defmodule Test do
+  user = %User{id: "user_id", name: "Bob", age: 12}
+  IO.inspect(user.id)
+  IO.inspect(user.name)
+  IO.inspect(user.age)
+end
+
+defmodule StructDemo do
+  defstruct foo: "hello", bar: "world!"
+
+  def check do
+    IO.inspect(%StructDemo{} == %StructDemo{foo: "hello", bar: "world!"})
+  end
+end
+
+StructDemo.check()
+
+defmodule StructDemo2 do
+  @enforce_keys [:foo]
+  defstruct [:foo, :bar]
+end
+```
+
+* map restreinte
+
+<!-- livebook:{"break_markdown":true} -->
+
+### Typespecs
+
+```elixir
+defmodule TypespecsDemo do
+  @spec mult(integer(), integer()) :: integer()
+  def mult(a, b), do: a * b
+
+  @spec fetch_user(String.t()) :: {:ok, User.t()} | {:error, String.t()}
+  def fetch_user(user_id) do
+    :ok
+  end
+end
+
+defmodule TypespecsDemo2 do
+  @type t :: String.t()
+
+  @spec bar(t(), String.t()) :: t()
+  def bar(foo, bar) do
+    foo <> bar
+  end
+end
+```
+
+* ignorées par le compilateur
+* documentation
+* dialyzer
+
+<!-- livebook:{"break_markdown":true} -->
+
+### https://hex.pm
+
+<!-- livebook:{"break_markdown":true} -->
+
+### Documentation
+
+````elixir
+defmodule DocsDemo do
+  @moduledoc """
+  This is the doc for my super awesome module!
+
+  ## Example
+
+  I can even use **for**_mat_~~ing~~,
+  ```
+  code blocks!
+  ```
+
+  and references to other stuff: `foo/0`.
+  """
+
+  @doc """
+  This is the doc for my super awesome function!
+
+  Again, **full** *markdown* ~~support~~!
+  """
+  def foo, do: nil
+end
+````
+
+https://hexdocs.pm
+
+## ExUnit
+
+TODO
